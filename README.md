@@ -1,4 +1,5 @@
 <<<<<<< HEAD
+<<<<<<< HEAD
 This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
 
 ## Getting Started
@@ -38,3 +39,6 @@ Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/bui
 =======
 # sharefit
 >>>>>>> ca64434de873ecab6866fe7dc35be924108edf84
+=======
+
+>>>>>>> 6574a51067cb8b3f64b87f9c3b547ca3690967fb
