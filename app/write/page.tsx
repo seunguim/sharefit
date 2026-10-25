@@ -3,6 +3,7 @@
 import { ChangeEvent, FormEvent, useState } from "react";
 import Link from "next/link";
 import FormField from "@/components/FormField";
+import { calcPricePerPerson, formatWon } from "@/lib/calc";
 import { Category } from "@/types/post";
 
 const CATEGORIES: Category[] = ["생필품", "식재료", "배달비"];
@@ -79,6 +80,12 @@ export default function WritePage() {
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [submitted, setSubmitted] = useState(false);
 
+  // 4차시: 총 결제 금액 ÷ 공구 인원 = 1인당 분담금 (입력할 때마다 자동 계산)
+  const pricePerPerson = calcPricePerPerson(
+    Number(values.totalPrice),
+    Number(values.targetCount)
+  );
+
   const handleChange = (
     e: ChangeEvent<HTMLInputElement | HTMLSelectElement>
   ) => {
@@ -115,7 +122,7 @@ export default function WritePage() {
 
     // 3차시: 입력값이 잘 모이는지까지만 확인합니다.
     // DB 저장은 7차시(Supabase)에서 붙일 예정이에요.
-    console.log("글쓰기 입력값", values);
+    console.log("글쓰기 입력값", { ...values, pricePerPerson });
     setSubmitted(true);
     setValues(initialValues);
     setImagePreview(null);
@@ -216,6 +223,23 @@ export default function WritePage() {
               className={inputClass}
             />
           </FormField>
+        </div>
+
+        <div className="rounded-lg bg-blue-50 px-3 py-2 text-sm">
+          {pricePerPerson === null ? (
+            <span className="text-gray-500">
+              총 결제 금액과 공구 인원을 입력하면 1인당 분담금이 자동으로
+              계산돼요.
+            </span>
+          ) : (
+            <span className="text-blue-700">
+              1인당 분담금:{" "}
+              <strong className="font-semibold">
+                {formatWon(pricePerPerson)}
+              </strong>{" "}
+              (자동계산)
+            </span>
+          )}
         </div>
 
         <FormField
