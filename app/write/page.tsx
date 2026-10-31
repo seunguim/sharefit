@@ -2,8 +2,11 @@
 
 import { ChangeEvent, FormEvent, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import FormField from "@/components/FormField";
 import { calcPricePerPerson, formatWon } from "@/lib/calc";
+import { createPost } from "@/lib/posts";
+import { saveToken } from "@/lib/tokens";
 import { Category } from "@/types/post";
 
 const CATEGORIES: Category[] = ["생필품", "식재료", "배달비"];
@@ -78,7 +81,9 @@ export default function WritePage() {
   const [values, setValues] = useState<FormValues>(initialValues);
   const [errors, setErrors] = useState<FormErrors>({});
   const [imagePreview, setImagePreview] = useState<string | null>(null);
-  const [submitted, setSubmitted] = useState(false);
+  const router = useRouter();
+  const [submitting, setSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
 
   // 4차시: 총 결제 금액 ÷ 공구 인원 = 1인당 분담금 (입력할 때마다 자동 계산)
   const pricePerPerson = calcPricePerPerson(
@@ -92,7 +97,7 @@ export default function WritePage() {
     const { name, value } = e.target;
     setValues((prev) => ({ ...prev, [name]: value }));
     setErrors((prev) => ({ ...prev, [name]: undefined }));
-    setSubmitted(false);
+    setSubmitError(null);
   };
 
   // 숫자만 입력되도록 걸러주는 핸들러 (금액·인원·계좌번호용)
@@ -101,7 +106,7 @@ export default function WritePage() {
     const onlyDigits = value.replace(/\D/g, "");
     setValues((prev) => ({ ...prev, [name]: onlyDigits }));
     setErrors((prev) => ({ ...prev, [name]: undefined }));
-    setSubmitted(false);
+    setSubmitError(null);
   };
 
   const handleImageChange = (e: ChangeEvent<HTMLInputElement>) => {
@@ -113,19 +118,39 @@ export default function WritePage() {
     setImagePreview(URL.createObjectURL(file));
   };
 
-  const handleSubmit = (e: FormEvent<HTMLFormElement>) => {
+  const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
+    if (submitting) return;
+
     const nextErrors = validate(values);
     setErrors(nextErrors);
-
     if (Object.keys(nextErrors).length > 0) return;
 
-    // 3차시: 입력값이 잘 모이는지까지만 확인합니다.
-    // DB 저장은 7차시(Supabase)에서 붙일 예정이에요.
-    console.log("글쓰기 입력값", { ...values, pricePerPerson });
-    setSubmitted(true);
-    setValues(initialValues);
-    setImagePreview(null);
+    setSubmitting(true);
+    setSubmitError(null);
+    try {
+      // 글 + 정산 계좌 + 방장의 참여를 DB에 한 번에 저장합니다.
+      const { postId, token } = await createPost({
+        title: values.title.trim(),
+        category: values.category,
+        productUrl: values.productUrl.trim(),
+        totalPrice: Number(values.totalPrice),
+        targetCount: Number(values.targetCount),
+        pickupPlace: values.pickupPlace.trim(),
+        pickupAt: new Date(values.pickupAt).toISOString(),
+        bankName: values.bankName.trim(),
+        accountNumber: values.accountNumber,
+        accountHolder: values.accountHolder.trim(),
+      });
+      // 방장이 자기 글의 계좌를 다시 볼 수 있도록 참여 토큰을 이 브라우저에 저장해요.
+      saveToken(postId, token);
+      router.push(`/post/${postId}`);
+    } catch (err) {
+      setSubmitError(
+        err instanceof Error ? err.message : "저장 중 알 수 없는 오류가 났어요."
+      );
+      setSubmitting(false);
+    }
   };
 
   return (
@@ -298,7 +323,7 @@ export default function WritePage() {
             label="계좌번호"
             htmlFor="accountNumber"
             error={errors.accountNumber}
-            hint="숫자만 입력해주세요. 참여가 확정된 사람에게만 공개될 예정이에요."
+            hint="숫자만 입력해주세요. 이 글에 참여한 사람에게만 공개돼요."
           >
             <input
               id="accountNumber"
@@ -329,7 +354,11 @@ export default function WritePage() {
           </FormField>
         </fieldset>
 
-        <FormField label="상품 이미지 (선택)" htmlFor="image">
+        <FormField
+          label="상품 이미지 (선택)"
+          htmlFor="image"
+          hint="미리보기만 되고 아직 저장되지는 않아요."
+        >
           <input
             id="image"
             type="file"
@@ -349,15 +378,17 @@ export default function WritePage() {
 
         <button
           type="submit"
-          className="rounded-full bg-blue-600 px-5 py-3 text-sm font-medium text-white shadow"
+          disabled={submitting}
+          className="rounded-full bg-blue-600 px-5 py-3 text-sm font-medium text-white shadow disabled:opacity-60"
         >
-          글쓰기
+          {submitting ? "저장하는 중..." : "글쓰기"}
         </button>
 
-        {submitted && (
-          <p className="text-center text-sm text-green-600">
-            입력이 확인됐어요! (DB 저장은 7차시에 연결할 예정이에요)
-          </p>
+        {submitError && (
+          <div className="rounded-lg border border-red-300 bg-red-50 p-3 text-sm text-red-700">
+            <p className="font-medium">저장하지 못했어요.</p>
+            <p className="mt-1 break-words">{submitError}</p>
+          </div>
         )}
       </form>
     </main>
