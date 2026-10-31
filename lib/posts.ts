@@ -74,12 +74,10 @@ export interface NewPostInput {
 }
 
 /**
- * 글쓰기. 글, 정산 계좌, 방장의 참여를 DB 함수 하나로 한 번에 저장합니다.
- * 돌려주는 token은 방장이 자기 글의 계좌를 다시 볼 때 쓰는 참여 토큰이에요.
+ * 글쓰기 (로그인 필요). 글, 정산 계좌, 글쓴이의 참여를 DB 함수 하나로 한 번에 저장합니다.
+ * 돌려주는 값은 새 글의 id예요.
  */
-export async function createPost(
-  input: NewPostInput
-): Promise<{ postId: string; token: string }> {
+export async function createPost(input: NewPostInput): Promise<string> {
   const { data, error } = await getSupabase().rpc("create_post", {
     p_title: input.title,
     p_category: input.category,
@@ -96,34 +94,32 @@ export async function createPost(
   });
 
   if (error) throw new Error(error.message);
-  const result = data as { post_id: string; token: string } | null;
+  const result = data as { post_id: string } | null;
   if (!result) throw new Error("저장 결과를 받지 못했어요.");
-  return { postId: result.post_id, token: result.token };
+  return result.post_id;
 }
 
-/** 참여하기. 인원 +1, 정원이 차면 '모집 완료'는 DB가 처리해요. 참여 토큰을 돌려줍니다. */
-export async function joinPost(
-  postId: string,
-  nickname: string
-): Promise<string> {
-  const { data, error } = await getSupabase().rpc("join_post", {
+/** 참여하기 (로그인 필요). 인원 +1, 정원이 차면 '모집 완료'는 DB가 처리해요. 한 계정은 한 번만 참여할 수 있어요. */
+export async function joinPost(postId: string): Promise<void> {
+  const { error } = await getSupabase().rpc("join_post", {
     p_post_id: postId,
-    p_nickname: nickname,
   });
-
   if (error) throw new Error(error.message);
-  if (typeof data !== "string") throw new Error("참여 결과를 받지 못했어요.");
-  return data;
 }
 
-/** 정산 계좌. 이 글에 참여한 사람의 토큰이 아니면 null */
-export async function fetchAccount(
-  postId: string,
-  token: string
-): Promise<Account | null> {
+/** 내가 이 글에 참여했는지 (로그인한 상태에서만 부르세요) */
+export async function hasJoined(postId: string): Promise<boolean> {
+  const { data, error } = await getSupabase().rpc("has_joined", {
+    p_post_id: postId,
+  });
+  if (error) throw new Error(error.message);
+  return data === true;
+}
+
+/** 정산 계좌. 이 글에 참여한 내 계정이 아니면 null (로그인한 상태에서만 부르세요) */
+export async function fetchAccount(postId: string): Promise<Account | null> {
   const { data, error } = await getSupabase().rpc("get_account", {
     p_post_id: postId,
-    p_token: token,
   });
 
   if (error) throw new Error(error.message);
@@ -138,4 +134,28 @@ export async function fetchAccount(
     accountNumber: rows[0].account_number,
     accountHolder: rows[0].account_holder,
   };
+}
+
+/** 내가 참여한 글 목록 (최근 참여한 순, 로그인한 상태에서만 부르세요) */
+export async function fetchMyPosts(): Promise<Post[]> {
+  const { data, error } = await getSupabase().rpc("my_participations");
+  if (error) throw new Error(error.message);
+
+  const ids = ((data ?? []) as { post_id: string }[]).map((r) => r.post_id);
+  if (ids.length === 0) return [];
+
+  const { data: rows, error: postError } = await getSupabase()
+    .from("posts")
+    .select(POST_COLUMNS)
+    .in("id", ids);
+  if (postError) throw new Error(postError.message);
+
+  const byId = new Map(
+    ((rows ?? []) as unknown as PostRow[]).map((r) => [r.id, toPost(r)])
+  );
+  // rpc가 준 순서(최근 참여 순)를 그대로 유지해요.
+  return ids.flatMap((id) => {
+    const post = byId.get(id);
+    return post ? [post] : [];
+  });
 }

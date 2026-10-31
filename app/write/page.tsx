@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import FormField from "@/components/FormField";
 import { calcPricePerPerson, formatWon } from "@/lib/calc";
 import { createPost } from "@/lib/posts";
-import { saveToken } from "@/lib/tokens";
+import { useAuth } from "@/lib/useAuth";
 import { Category } from "@/types/post";
 
 const CATEGORIES: Category[] = ["생필품", "식재료", "배달비"];
@@ -82,6 +82,7 @@ export default function WritePage() {
   const [errors, setErrors] = useState<FormErrors>({});
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const router = useRouter();
+  const { user, loading: authLoading } = useAuth();
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
 
@@ -129,8 +130,8 @@ export default function WritePage() {
     setSubmitting(true);
     setSubmitError(null);
     try {
-      // 글 + 정산 계좌 + 방장의 참여를 DB에 한 번에 저장합니다.
-      const { postId, token } = await createPost({
+      // 글 + 정산 계좌 + 글쓴이의 참여를 DB에 한 번에 저장합니다. (로그인 필요)
+      const postId = await createPost({
         title: values.title.trim(),
         category: values.category,
         productUrl: values.productUrl.trim(),
@@ -142,8 +143,6 @@ export default function WritePage() {
         accountNumber: values.accountNumber,
         accountHolder: values.accountHolder.trim(),
       });
-      // 방장이 자기 글의 계좌를 다시 볼 수 있도록 참여 토큰을 이 브라우저에 저장해요.
-      saveToken(postId, token);
       router.push(`/post/${postId}`);
     } catch (err) {
       setSubmitError(
@@ -152,6 +151,31 @@ export default function WritePage() {
       setSubmitting(false);
     }
   };
+
+  if (authLoading) {
+    return (
+      <main className="mx-auto max-w-md px-4 pt-6">
+        <p className="py-10 text-center text-sm text-gray-400">불러오는 중...</p>
+      </main>
+    );
+  }
+
+  if (!user) {
+    return (
+      <main className="mx-auto max-w-md px-4 pt-6">
+        <h1 className="text-lg font-semibold text-gray-100">공동구매 글쓰기</h1>
+        <div className="mt-4 rounded-xl border border-gray-200 bg-white p-4 text-center text-sm text-gray-700">
+          <p>글을 쓰려면 로그인이 필요해요.</p>
+          <Link
+            href="/login?next=/write"
+            className="mt-3 inline-block rounded-full bg-blue-600 px-5 py-2 font-medium text-white shadow"
+          >
+            로그인하러 가기
+          </Link>
+        </div>
+      </main>
+    );
+  }
 
   return (
     <main className="mx-auto max-w-md px-4 pt-6">

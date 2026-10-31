@@ -9,8 +9,8 @@ import {
   formatWon,
   isRecruitDone,
 } from "@/lib/calc";
-import { fetchAccount, fetchPost, joinPost } from "@/lib/posts";
-import { getToken, saveToken } from "@/lib/tokens";
+import { fetchAccount, fetchPost, hasJoined, joinPost } from "@/lib/posts";
+import { useAuth } from "@/lib/useAuth";
 import { Account, Post } from "@/types/post";
 
 type LoadState =
@@ -19,15 +19,15 @@ type LoadState =
   | { kind: "notfound" }
   | { kind: "ok"; post: Post; account: Account | null; joined: boolean };
 
-// 글 정보와, 이 브라우저의 참여 토큰으로 볼 수 있는 계좌를 함께 불러옵니다.
-async function loadAll(id: string): Promise<LoadState> {
+// 글 정보와, 로그인한 사람이 이 글에 참여했는지(참여했다면 정산 계좌)를 함께 불러옵니다.
+async function loadAll(id: string, loggedIn: boolean): Promise<LoadState> {
   const post = await fetchPost(id);
   if (!post) return { kind: "notfound" };
+  if (!loggedIn) return { kind: "ok", post, account: null, joined: false };
 
-  const token = getToken(id);
-  const account = token ? await fetchAccount(id, token) : null;
-  // 토큰이 있어도 계좌가 안 오면(다른 글의 토큰 등) 참여한 것으로 보지 않아요.
-  return { kind: "ok", post, account, joined: account !== null };
+  const joined = await hasJoined(id);
+  const account = joined ? await fetchAccount(id) : null;
+  return { kind: "ok", post, account, joined };
 }
 
 function formatPickup(iso: string): string {
@@ -44,15 +44,17 @@ function formatPickup(iso: string): string {
 
 export default function PostDetailPage() {
   const { id } = useParams<{ id: string }>();
+  const { user, loading: authLoading } = useAuth();
+  const userId = user?.id ?? null;
   const [state, setState] = useState<LoadState>({ kind: "loading" });
-  const [nickname, setNickname] = useState("");
   const [joining, setJoining] = useState(false);
   const [joinError, setJoinError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
 
   useEffect(() => {
+    if (authLoading) return; // 로그인 여부를 확인한 뒤에 불러와요.
     let cancelled = false;
-    loadAll(id)
+    loadAll(id, userId !== null)
       .then((next) => {
         if (!cancelled) setState(next);
       })
@@ -67,26 +69,21 @@ export default function PostDetailPage() {
     return () => {
       cancelled = true;
     };
-  }, [id]);
+  }, [id, userId, authLoading]);
 
   const handleJoin = async () => {
     if (joining) return;
-    const name = nickname.trim();
-    if (!name) {
-      setJoinError("닉네임을 입력해주세요.");
-      return;
-    }
+    if (!user) return;
     setJoining(true);
     setJoinError(null);
     try {
-      const token = await joinPost(id, name);
-      saveToken(id, token);
-      setState(await loadAll(id)); // 인원·진행률·계좌를 새로 불러와요.
+      await joinPost(id);
+      setState(await loadAll(id, true)); // 인원·진행률·계좌를 새로 불러와요.
     } catch (e) {
       setJoinError(e instanceof Error ? e.message : "참여하지 못했어요.");
       // 다른 사람이 먼저 참여해서 정원이 찼을 수 있으니 최신 상태로 다시 보여줘요.
       try {
-        setState(await loadAll(id));
+        setState(await loadAll(id, true));
       } catch {
         // 목록을 못 불러와도 위의 오류 문구는 그대로 보여줘요.
       }
@@ -139,8 +136,8 @@ export default function PostDetailPage() {
           post={state.post}
           account={state.account}
           joined={state.joined}
-          nickname={nickname}
-          onNicknameChange={setNickname}
+          loggedIn={user !== null}
+          loginHref={`/login?next=${encodeURIComponent(`/post/${id}`)}`}
           joining={joining}
           joinError={joinError}
           onJoin={handleJoin}
@@ -156,8 +153,8 @@ interface DetailBodyProps {
   post: Post;
   account: Account | null;
   joined: boolean;
-  nickname: string;
-  onNicknameChange: (value: string) => void;
+  loggedIn: boolean;
+  loginHref: string;
   joining: boolean;
   joinError: string | null;
   onJoin: () => void;
@@ -169,8 +166,8 @@ function DetailBody({
   post,
   account,
   joined,
-  nickname,
-  onNicknameChange,
+  loggedIn,
+  loginHref,
   joining,
   joinError,
   onJoin,
@@ -266,6 +263,10 @@ function DetailBody({
               픽업 전에 1인당 분담금을 이 계좌로 보내주세요.
             </p>
           </div>
+        ) : joined ? (
+          <p className="mt-2 text-sm text-gray-500">
+            등록된 정산 계좌가 없어요.
+          </p>
         ) : (
           <p className="mt-2 text-sm text-gray-500">
             이 글에 참여하면 정산 계좌가 공개돼요.
@@ -278,26 +279,26 @@ function DetailBody({
           <p className="rounded-lg bg-green-50 p-3 text-center text-sm text-green-700">
             이 글에 참여 중이에요.
           </p>
+        ) : isDone ? (
+          <p className="rounded-full bg-gray-400 px-5 py-3 text-center text-sm font-medium text-white">
+            모집이 끝났어요
+          </p>
+        ) : !loggedIn ? (
+          <Link
+            href={loginHref}
+            className="rounded-full bg-blue-600 px-5 py-3 text-center text-sm font-medium text-white shadow"
+          >
+            로그인하고 참여하기
+          </Link>
         ) : (
-          <>
-            <input
-              type="text"
-              value={nickname}
-              onChange={(e) => onNicknameChange(e.target.value)}
-              placeholder="닉네임 (필수)"
-              maxLength={20}
-              disabled={isDone}
-              className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 placeholder-gray-400 focus:border-blue-400 focus:outline-none disabled:bg-gray-100"
-            />
-            <button
-              type="button"
-              onClick={onJoin}
-              disabled={isDone || joining}
-              className="rounded-full bg-blue-600 px-5 py-3 text-sm font-medium text-white shadow disabled:bg-gray-400"
-            >
-              {isDone ? "모집이 끝났어요" : joining ? "참여하는 중..." : "참여하기"}
-            </button>
-          </>
+          <button
+            type="button"
+            onClick={onJoin}
+            disabled={isDone || joining}
+            className="rounded-full bg-blue-600 px-5 py-3 text-sm font-medium text-white shadow disabled:bg-gray-400"
+          >
+            {isDone ? "모집이 끝났어요" : joining ? "참여하는 중..." : "참여하기"}
+          </button>
         )}
 
         {joinError && (
