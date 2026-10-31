@@ -71,10 +71,15 @@ export default function PostDetailPage() {
 
   const handleJoin = async () => {
     if (joining) return;
+    const name = nickname.trim();
+    if (!name) {
+      setJoinError("닉네임을 입력해주세요.");
+      return;
+    }
     setJoining(true);
     setJoinError(null);
     try {
-      const token = await joinPost(id, nickname);
+      const token = await joinPost(id, name);
       saveToken(id, token);
       setState(await loadAll(id)); // 인원·진행률·계좌를 새로 불러와요.
     } catch (e) {
@@ -279,7 +284,7 @@ function DetailBody({
               type="text"
               value={nickname}
               onChange={(e) => onNicknameChange(e.target.value)}
-              placeholder="닉네임 (선택)"
+              placeholder="닉네임 (필수)"
               maxLength={20}
               disabled={isDone}
               className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 placeholder-gray-400 focus:border-blue-400 focus:outline-none disabled:bg-gray-100"
