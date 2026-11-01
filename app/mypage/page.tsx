@@ -4,14 +4,14 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import PostCard from "@/components/PostCard";
 import { displayName, signOut } from "@/lib/auth";
-import { fetchMyPosts } from "@/lib/posts";
+import { fetchMyPosts, fetchMyWrittenPosts } from "@/lib/posts";
 import { useAuth } from "@/lib/useAuth";
 import { Post } from "@/types/post";
 
 type ListState =
   | { kind: "loading" }
   | { kind: "error"; message: string }
-  | { kind: "ok"; posts: Post[] };
+  | { kind: "ok"; written: Post[]; joined: Post[] };
 
 export default function MyPage() {
   const { user, loading } = useAuth();
@@ -22,9 +22,12 @@ export default function MyPage() {
   useEffect(() => {
     if (userId === null) return;
     let cancelled = false;
-    fetchMyPosts()
-      .then((posts) => {
-        if (!cancelled) setList({ kind: "ok", posts });
+    Promise.all([fetchMyWrittenPosts(userId), fetchMyPosts()])
+      .then(([written, participated]) => {
+        if (cancelled) return;
+        // 내가 쓴 글은 "참여한 글"에도 들어 있어서, 겹치지 않게 빼요.
+        const joined = participated.filter((p) => p.authorId !== userId);
+        setList({ kind: "ok", written, joined });
       })
       .catch((e: unknown) => {
         if (!cancelled) {
@@ -95,33 +98,58 @@ export default function MyPage() {
         <p className="mt-2 text-sm text-red-400">{logoutError}</p>
       )}
 
-      <h2 className="mt-6 text-sm font-semibold text-gray-200">
-        내가 참여한 공동구매
+      {list.kind === "loading" && (
+        <p className="py-6 text-center text-sm text-gray-400">불러오는 중...</p>
+      )}
+      {list.kind === "error" && (
+        <div className="mt-4 rounded-lg border border-red-300 bg-red-50 p-3 text-sm text-red-700">
+          <p className="font-medium">목록을 불러오지 못했어요.</p>
+          <p className="mt-1 break-words">{list.message}</p>
+        </div>
+      )}
+      {list.kind === "ok" && (
+        <>
+          <PostSection
+            title="내가 쓴 공동구매"
+            posts={list.written}
+            emptyText="아직 쓴 글이 없어요."
+          />
+          <PostSection
+            title="내가 참여한 공동구매"
+            posts={list.joined}
+            emptyText="아직 참여한 글이 없어요."
+          />
+        </>
+      )}
+    </main>
+  );
+}
+
+function PostSection({
+  title,
+  posts,
+  emptyText,
+}: {
+  title: string;
+  posts: Post[];
+  emptyText: string;
+}) {
+  return (
+    <section className="mt-6">
+      <h2 className="text-sm font-semibold text-gray-200">
+        {title} ({posts.length})
       </h2>
-      <div className="mt-2 flex flex-col gap-3 pb-4">
-        {list.kind === "loading" && (
-          <p className="py-6 text-center text-sm text-gray-400">
-            불러오는 중...
-          </p>
-        )}
-        {list.kind === "error" && (
-          <div className="rounded-lg border border-red-300 bg-red-50 p-3 text-sm text-red-700">
-            <p className="font-medium">목록을 불러오지 못했어요.</p>
-            <p className="mt-1 break-words">{list.message}</p>
-          </div>
-        )}
-        {list.kind === "ok" && list.posts.length === 0 && (
-          <p className="py-6 text-center text-sm text-gray-400">
-            아직 참여한 글이 없어요.
-          </p>
-        )}
-        {list.kind === "ok" &&
-          list.posts.map((post) => (
+      <div className="mt-2 flex flex-col gap-3">
+        {posts.length === 0 ? (
+          <p className="py-4 text-center text-sm text-gray-400">{emptyText}</p>
+        ) : (
+          posts.map((post) => (
             <Link key={post.id} href={`/post/${post.id}`} className="block">
               <PostCard post={post} />
             </Link>
-          ))}
+          ))
+        )}
       </div>
-    </main>
+    </section>
   );
 }

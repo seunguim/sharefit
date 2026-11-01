@@ -207,6 +207,18 @@ export async function fetchAccount(postId: string): Promise<Account | null> {
   };
 }
 
+/** 내가 쓴 글 목록 (최신순) */
+export async function fetchMyWrittenPosts(userId: string): Promise<Post[]> {
+  const { data, error } = await getSupabase()
+    .from("posts")
+    .select(POST_COLUMNS)
+    .eq("author_id", userId)
+    .order("created_at", { ascending: false });
+
+  if (error) throw new Error(error.message);
+  return ((data ?? []) as unknown as PostRow[]).map(toPost);
+}
+
 /** 내가 참여한 글 목록 (최근 참여한 순, 로그인한 상태에서만 부르세요) */
 export async function fetchMyPosts(): Promise<Post[]> {
   const { data, error } = await getSupabase().rpc("my_participations");
