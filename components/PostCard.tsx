@@ -13,9 +13,18 @@ export default function PostCard({ post }: { post: Post }) {
 
   return (
     <div className="flex gap-4 rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
-      <div className="flex h-20 w-20 shrink-0 items-center justify-center rounded-lg bg-blue-100 text-xs text-blue-400">
-        상품 사진
-      </div>
+      {post.imageUrl ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          src={post.imageUrl}
+          alt={`${post.title} 사진`}
+          className="h-20 w-20 shrink-0 rounded-lg object-cover"
+        />
+      ) : (
+        <div className="flex h-20 w-20 shrink-0 items-center justify-center rounded-lg bg-blue-100 text-xs text-blue-400">
+          상품 사진
+        </div>
+      )}
 
       <div className="flex flex-1 flex-col justify-between">
         <div>

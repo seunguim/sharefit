@@ -73,6 +73,7 @@ export interface NewPostInput {
   bankName: string;
   accountNumber: string;
   accountHolder: string;
+  imageUrl?: string | null; // 올려 둔 사진의 공개 주소
 }
 
 /**
@@ -93,12 +94,40 @@ export async function createPost(input: NewPostInput): Promise<string> {
     p_account_holder: input.accountHolder,
     p_lat: DEFAULT_LOCATION.lat,
     p_lng: DEFAULT_LOCATION.lng,
+    p_image_url: input.imageUrl ?? null,
   });
 
   if (error) throw new Error(error.message);
   const result = data as { post_id: string } | null;
   if (!result) throw new Error("저장 결과를 받지 못했어요.");
   return result.post_id;
+}
+
+export interface UpdatePostInput extends NewPostInput {
+  clearImage?: boolean; // true면 올려 둔 사진을 지워요. (imageUrl이 있으면 그 사진으로 바꿔요.)
+}
+
+/** 글 수정 (글쓴이만). 글 내용과 정산 계좌를 함께 바꿔요. */
+export async function updatePost(
+  postId: string,
+  input: UpdatePostInput
+): Promise<void> {
+  const { error } = await getSupabase().rpc("update_post", {
+    p_post_id: postId,
+    p_title: input.title,
+    p_category: input.category,
+    p_product_url: input.productUrl,
+    p_total_price: input.totalPrice,
+    p_target_count: input.targetCount,
+    p_pickup_place: input.pickupPlace,
+    p_pickup_at: input.pickupAt,
+    p_bank_name: input.bankName,
+    p_account_number: input.accountNumber,
+    p_account_holder: input.accountHolder,
+    p_image_url: input.imageUrl ?? null,
+    p_clear_image: input.clearImage ?? false,
+  });
+  if (error) throw new Error(error.message);
 }
 
 /** 참여하기 (로그인 필요). 인원 +1, 정원이 차면 '모집 완료'는 DB가 처리해요. 한 계정은 한 번만 참여할 수 있어요. */

@@ -262,6 +262,14 @@ function DetailBody({
   return (
     <div className="flex flex-col gap-4 pb-4">
       <section className="rounded-xl border border-gray-200 bg-white p-4 text-gray-900 shadow-sm">
+        {post.imageUrl && (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={post.imageUrl}
+            alt={`${post.title} 사진`}
+            className="mb-3 max-h-64 w-full rounded-lg object-cover"
+          />
+        )}
         <div className="flex items-center gap-2">
           <span className="text-xs font-medium text-blue-500">
             {post.category}
@@ -425,6 +433,14 @@ function DetailBody({
             <p className="rounded-lg bg-green-50 p-3 text-center text-sm text-green-700">
               {isAuthor ? "내가 쓴 글이에요." : "이 글에 참여 중이에요."}
             </p>
+            {isAuthor && (
+              <Link
+                href={`/post/${post.id}/edit`}
+                className="rounded-full border border-gray-300 px-5 py-2 text-center text-sm text-gray-300"
+              >
+                글 수정
+              </Link>
+            )}
             {!isAuthor && (
               <button
                 type="button"
