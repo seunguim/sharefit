@@ -16,10 +16,11 @@ interface PostRow {
   pickup_place: string;
   pickup_at: string;
   status: PostStatus;
+  author_id: string | null;
 }
 
 const POST_COLUMNS =
-  "id, title, category, product_url, image_url, total_price, target_count, current_count, pickup_place, pickup_at, status";
+  "id, title, category, product_url, image_url, total_price, target_count, current_count, pickup_place, pickup_at, status, author_id";
 
 function toPost(row: PostRow): Post {
   return {
@@ -34,6 +35,7 @@ function toPost(row: PostRow): Post {
     pickupPlace: row.pickup_place,
     pickupAt: row.pickup_at,
     status: row.status,
+    authorId: row.author_id ?? undefined,
   };
 }
 
@@ -102,6 +104,14 @@ export async function createPost(input: NewPostInput): Promise<string> {
 /** 참여하기 (로그인 필요). 인원 +1, 정원이 차면 '모집 완료'는 DB가 처리해요. 한 계정은 한 번만 참여할 수 있어요. */
 export async function joinPost(postId: string): Promise<void> {
   const { error } = await getSupabase().rpc("join_post", {
+    p_post_id: postId,
+  });
+  if (error) throw new Error(error.message);
+}
+
+/** 참여 취소 (로그인 필요). 인원이 -1 되고 '모집 완료'였다면 다시 '모집중'이 돼요. 글쓴이는 취소할 수 없어요. */
+export async function leavePost(postId: string): Promise<void> {
+  const { error } = await getSupabase().rpc("leave_post", {
     p_post_id: postId,
   });
   if (error) throw new Error(error.message);

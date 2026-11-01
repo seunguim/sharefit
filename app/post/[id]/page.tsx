@@ -9,7 +9,13 @@ import {
   formatWon,
   isRecruitDone,
 } from "@/lib/calc";
-import { fetchAccount, fetchPost, hasJoined, joinPost } from "@/lib/posts";
+import {
+  fetchAccount,
+  fetchPost,
+  hasJoined,
+  joinPost,
+  leavePost,
+} from "@/lib/posts";
 import { useAuth } from "@/lib/useAuth";
 import { Account, Post } from "@/types/post";
 
@@ -50,6 +56,7 @@ export default function PostDetailPage() {
   const [joining, setJoining] = useState(false);
   const [joinError, setJoinError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+  const [leaving, setLeaving] = useState(false);
 
   useEffect(() => {
     if (authLoading) return; // 로그인 여부를 확인한 뒤에 불러와요.
@@ -90,6 +97,25 @@ export default function PostDetailPage() {
     } finally {
       setJoining(false);
     }
+  };
+
+  const handleLeave = async () => {
+    if (leaving) return;
+    if (!window.confirm("이 공동구매 참여를 취소할까요?")) return;
+    setLeaving(true);
+    setJoinError(null);
+    try {
+      await leavePost(id);
+      setCopied(false);
+    } catch (e) {
+      setJoinError(e instanceof Error ? e.message : "참여를 취소하지 못했어요.");
+    }
+    try {
+      setState(await loadAll(id, true)); // 인원·진행률을 새로 불러와요.
+    } catch {
+      // 목록을 못 불러와도 위의 오류 문구는 그대로 보여줘요.
+    }
+    setLeaving(false);
   };
 
   const handleCopy = async (text: string) => {
@@ -137,10 +163,13 @@ export default function PostDetailPage() {
           account={state.account}
           joined={state.joined}
           loggedIn={user !== null}
+          isAuthor={user !== null && state.post.authorId === user.id}
           loginHref={`/login?next=${encodeURIComponent(`/post/${id}`)}`}
           joining={joining}
           joinError={joinError}
           onJoin={handleJoin}
+          onLeave={handleLeave}
+          leaving={leaving}
           copied={copied}
           onCopy={handleCopy}
         />
@@ -154,10 +183,13 @@ interface DetailBodyProps {
   account: Account | null;
   joined: boolean;
   loggedIn: boolean;
+  isAuthor: boolean;
   loginHref: string;
   joining: boolean;
   joinError: string | null;
   onJoin: () => void;
+  onLeave: () => void;
+  leaving: boolean;
   copied: boolean;
   onCopy: (text: string) => void;
 }
@@ -167,10 +199,13 @@ function DetailBody({
   account,
   joined,
   loggedIn,
+  isAuthor,
   loginHref,
   joining,
   joinError,
   onJoin,
+  onLeave,
+  leaving,
   copied,
   onCopy,
 }: DetailBodyProps) {
@@ -276,9 +311,21 @@ function DetailBody({
 
       <section className="flex flex-col gap-2">
         {joined ? (
-          <p className="rounded-lg bg-green-50 p-3 text-center text-sm text-green-700">
-            이 글에 참여 중이에요.
-          </p>
+          <>
+            <p className="rounded-lg bg-green-50 p-3 text-center text-sm text-green-700">
+              {isAuthor ? "내가 쓴 글이에요." : "이 글에 참여 중이에요."}
+            </p>
+            {!isAuthor && (
+              <button
+                type="button"
+                onClick={onLeave}
+                disabled={leaving}
+                className="rounded-full border border-gray-300 px-5 py-2 text-sm text-gray-300 disabled:opacity-60"
+              >
+                {leaving ? "취소하는 중..." : "참여 취소"}
+              </button>
+            )}
+          </>
         ) : isDone ? (
           <p className="rounded-full bg-gray-400 px-5 py-3 text-center text-sm font-medium text-white">
             모집이 끝났어요

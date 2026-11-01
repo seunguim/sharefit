@@ -16,6 +16,7 @@ export interface Post {
   pickupPlace: string;
   pickupAt: string; // ISO 문자열
   status: PostStatus;
+  authorId?: string; // 글쓴이 계정 id (더미 글은 없어요)
 }
 
 export interface Account {
