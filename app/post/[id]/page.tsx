@@ -11,29 +11,43 @@ import {
 } from "@/lib/calc";
 import {
   fetchAccount,
+  fetchMyPaid,
+  fetchParticipants,
   fetchPost,
   hasJoined,
   joinPost,
   leavePost,
+  setPaid,
 } from "@/lib/posts";
 import { useAuth } from "@/lib/useAuth";
-import { Account, Post } from "@/types/post";
+import { Account, Participant, Post } from "@/types/post";
 
 type LoadState =
   | { kind: "loading" }
   | { kind: "error"; message: string }
   | { kind: "notfound" }
-  | { kind: "ok"; post: Post; account: Account | null; joined: boolean };
+  | {
+      kind: "ok";
+      post: Post;
+      account: Account | null;
+      joined: boolean;
+      myPaid: boolean;
+      participants: Participant[];
+    };
 
 // 글 정보와, 로그인한 사람이 이 글에 참여했는지(참여했다면 정산 계좌)를 함께 불러옵니다.
 async function loadAll(id: string, loggedIn: boolean): Promise<LoadState> {
   const post = await fetchPost(id);
   if (!post) return { kind: "notfound" };
-  if (!loggedIn) return { kind: "ok", post, account: null, joined: false };
+  const participants = await fetchParticipants(id);
+  if (!loggedIn) {
+    return { kind: "ok", post, account: null, joined: false, myPaid: false, participants };
+  }
 
   const joined = await hasJoined(id);
   const account = joined ? await fetchAccount(id) : null;
-  return { kind: "ok", post, account, joined };
+  const myPaid = joined ? await fetchMyPaid(id) : false;
+  return { kind: "ok", post, account, joined, myPaid, participants };
 }
 
 function formatPickup(iso: string): string {
@@ -57,6 +71,7 @@ export default function PostDetailPage() {
   const [joinError, setJoinError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
   const [leaving, setLeaving] = useState(false);
+  const [paying, setPaying] = useState(false);
 
   useEffect(() => {
     if (authLoading) return; // 로그인 여부를 확인한 뒤에 불러와요.
@@ -118,6 +133,23 @@ export default function PostDetailPage() {
     setLeaving(false);
   };
 
+  const handlePaid = async (paid: boolean) => {
+    if (paying) return;
+    setPaying(true);
+    setJoinError(null);
+    try {
+      await setPaid(id, paid);
+    } catch (e) {
+      setJoinError(e instanceof Error ? e.message : "송금 상태를 바꾸지 못했어요.");
+    }
+    try {
+      setState(await loadAll(id, true)); // 송금 전/후 현황을 새로 불러와요.
+    } catch {
+      // 목록을 못 불러와도 위의 오류 문구는 그대로 보여줘요.
+    }
+    setPaying(false);
+  };
+
   const handleCopy = async (text: string) => {
     try {
       await navigator.clipboard.writeText(text);
@@ -162,6 +194,10 @@ export default function PostDetailPage() {
           post={state.post}
           account={state.account}
           joined={state.joined}
+          myPaid={state.myPaid}
+          participants={state.participants}
+          paying={paying}
+          onPaid={handlePaid}
           loggedIn={user !== null}
           isAuthor={user !== null && state.post.authorId === user.id}
           loginHref={`/login?next=${encodeURIComponent(`/post/${id}`)}`}
@@ -182,6 +218,10 @@ interface DetailBodyProps {
   post: Post;
   account: Account | null;
   joined: boolean;
+  myPaid: boolean;
+  participants: Participant[];
+  paying: boolean;
+  onPaid: (paid: boolean) => void;
   loggedIn: boolean;
   isAuthor: boolean;
   loginHref: string;
@@ -198,6 +238,10 @@ function DetailBody({
   post,
   account,
   joined,
+  myPaid,
+  participants,
+  paying,
+  onPaid,
   loggedIn,
   isAuthor,
   loginHref,
@@ -309,6 +353,72 @@ function DetailBody({
         )}
       </section>
 
+      {joined && !isAuthor && (
+        <section className="rounded-xl border border-gray-200 bg-white p-4 text-gray-900 shadow-sm">
+          <h3 className="text-sm font-semibold">송금 상태</h3>
+          {myPaid ? (
+            <div className="mt-2 flex items-center justify-between gap-2">
+              <span className="rounded-full bg-green-100 px-3 py-1 text-sm font-medium text-green-700">
+                송금 완료 ✓
+              </span>
+              <button
+                type="button"
+                onClick={() => onPaid(false)}
+                disabled={paying}
+                className="text-xs text-gray-500 underline disabled:opacity-60"
+              >
+                {paying ? "바꾸는 중..." : "송금 전으로 되돌리기"}
+              </button>
+            </div>
+          ) : (
+            <div className="mt-2">
+              <p className="text-sm text-gray-500">
+                아직 송금 전이에요. 위 계좌로 {pricePerPerson === null ? "분담금" : formatWon(pricePerPerson)}을 보낸 뒤 눌러주세요.
+              </p>
+              <button
+                type="button"
+                onClick={() => onPaid(true)}
+                disabled={paying}
+                className="mt-2 w-full rounded-full bg-green-600 px-5 py-2 text-sm font-medium text-white shadow disabled:opacity-60"
+              >
+                {paying ? "표시하는 중..." : "송금 완료했어요"}
+              </button>
+            </div>
+          )}
+        </section>
+      )}
+
+      <section className="rounded-xl border border-gray-200 bg-white p-4 text-gray-900 shadow-sm">
+        <h3 className="text-sm font-semibold">참여자 현황</h3>
+        {participants.length === 0 ? (
+          <p className="mt-2 text-sm text-gray-500">아직 참여자가 없어요.</p>
+        ) : (
+          <div className="mt-2 grid grid-cols-2 gap-3 text-sm">
+            {[
+              { label: "송금 전", list: participants.filter((p) => !p.paid), tone: "text-gray-500" },
+              { label: "송금 후", list: participants.filter((p) => p.paid), tone: "text-green-700" },
+            ].map((group) => (
+              <div key={group.label}>
+                <p className={`text-xs font-medium ${group.tone}`}>
+                  {group.label} ({group.list.length}명)
+                </p>
+                <ul className="mt-1 flex flex-col gap-1">
+                  {group.list.length === 0 ? (
+                    <li className="text-xs text-gray-400">없음</li>
+                  ) : (
+                    group.list.map((p) => (
+                      <li key={p.id} className="truncate">
+                        {p.nickname}
+                      </li>
+                    ))
+                  )}
+                </ul>
+              </div>
+            ))}
+          </div>
+        )}
+      </section>
+
       <section className="flex flex-col gap-2">
         {joined ? (
           <>
@@ -350,7 +460,7 @@ function DetailBody({
 
         {joinError && (
           <div className="rounded-lg border border-red-300 bg-red-50 p-3 text-sm text-red-700">
-            <p className="font-medium">참여하지 못했어요.</p>
+            <p className="font-medium">처리하지 못했어요.</p>
             <p className="mt-1 break-words">{joinError}</p>
           </div>
         )}

@@ -1,5 +1,5 @@
 import { getSupabase } from "@/lib/supabase";
-import { Account, Category, Post, PostStatus } from "@/types/post";
+import { Account, Category, Participant, Post, PostStatus } from "@/types/post";
 
 // 초반에는 대전역 부근의 고정 좌표를 씁니다. (계획서: 위치 API는 단계적으로 연동)
 const DEFAULT_LOCATION = { lat: 36.3326, lng: 127.4342 };
@@ -113,6 +113,38 @@ export async function joinPost(postId: string): Promise<void> {
 export async function leavePost(postId: string): Promise<void> {
   const { error } = await getSupabase().rpc("leave_post", {
     p_post_id: postId,
+  });
+  if (error) throw new Error(error.message);
+}
+
+/** 참여자 현황 (닉네임, 송금 여부). 누구나 볼 수 있고 계좌·이메일은 포함되지 않아요. */
+export async function fetchParticipants(postId: string): Promise<Participant[]> {
+  const { data, error } = await getSupabase()
+    .from("participants")
+    .select("id, nickname, paid")
+    .eq("post_id", postId)
+    .order("joined_at", { ascending: true });
+
+  if (error) throw new Error(error.message);
+  return ((data ?? []) as { id: string; nickname: string | null; paid: boolean }[]).map(
+    (r) => ({ id: r.id, nickname: r.nickname ?? "참여자", paid: r.paid })
+  );
+}
+
+/** 내가 송금 완료로 표시했는지 (로그인한 상태에서만 부르세요) */
+export async function fetchMyPaid(postId: string): Promise<boolean> {
+  const { data, error } = await getSupabase().rpc("my_paid", {
+    p_post_id: postId,
+  });
+  if (error) throw new Error(error.message);
+  return data === true;
+}
+
+/** 송금 완료 표시하기(true) / 되돌리기(false). 글쓴이는 바꿀 수 없어요. */
+export async function setPaid(postId: string, paid: boolean): Promise<void> {
+  const { error } = await getSupabase().rpc("set_paid", {
+    p_post_id: postId,
+    p_paid: paid,
   });
   if (error) throw new Error(error.message);
 }

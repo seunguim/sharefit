@@ -19,6 +19,13 @@ export interface Post {
   authorId?: string; // 글쓴이 계정 id (더미 글은 없어요)
 }
 
+// 참여자 현황용. 닉네임과 송금 여부만 공개돼요.
+export interface Participant {
+  id: string;
+  nickname: string;
+  paid: boolean;
+}
+
 export interface Account {
   bankName: string;
   accountNumber: string;
