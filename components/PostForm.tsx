@@ -3,10 +3,10 @@
 import { ChangeEvent, FormEvent, useEffect, useMemo, useState } from "react";
 import FormField from "@/components/FormField";
 import { calcPricePerPerson, formatWon } from "@/lib/calc";
+import { BANNED_NOTICE, findBannedWord } from "@/lib/banned";
+import { CATEGORIES } from "@/lib/categories";
 import { checkImageFile } from "@/lib/storage";
 import { Category } from "@/types/post";
-
-export const CATEGORIES: Category[] = ["생필품", "식재료", "배달비"];
 
 const inputClass =
   "w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 placeholder-gray-400 focus:border-blue-400 focus:outline-none";
@@ -58,10 +58,16 @@ type FormErrors = Partial<Record<keyof FormValues, string>>;
 function validate(values: FormValues, pickupMustBeFuture: boolean): FormErrors {
   const errors: FormErrors = {};
 
-  if (!values.title.trim()) errors.title = "모집글 제목을 입력해주세요.";
+  if (!values.title.trim()) {
+    errors.title = "모집글 제목을 입력해주세요.";
+  } else if (findBannedWord(values.title)) {
+    errors.title = `공동구매할 수 없는 물품이에요. (${findBannedWord(values.title)})`;
+  }
 
   if (!values.productUrl.trim()) {
     errors.productUrl = "상품 링크나 상품명을 입력해주세요.";
+  } else if (findBannedWord(values.productUrl)) {
+    errors.productUrl = `공동구매할 수 없는 물품이에요. (${findBannedWord(values.productUrl)})`;
   }
 
   const price = Number(values.totalPrice);
@@ -213,6 +219,17 @@ export default function PostForm({
       noValidate
       className="flex flex-col gap-4 rounded-xl border border-gray-200 bg-white p-4 shadow-sm"
     >
+      <div className="rounded-lg bg-gray-50 p-3 text-xs leading-relaxed text-gray-600">
+        <p className="font-medium text-gray-700">올리기 전에 확인해주세요</p>
+        <ul className="mt-1 list-disc pl-4">
+          <li>{BANNED_NOTICE}</li>
+          <li>
+            진행 순서: 정원이 차면 참여자가 정산 계좌로 송금 → 글쓴이가 입금을
+            확인한 뒤 주문 → 정해진 장소와 시간에 픽업
+          </li>
+        </ul>
+      </div>
+
       <FormField label="모집글 제목" htmlFor="title" error={errors.title}>
         <input
           id="title"

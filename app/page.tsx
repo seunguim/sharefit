@@ -4,9 +4,10 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import PostCard from "@/components/PostCard";
 import { fetchPosts } from "@/lib/posts";
+import { CATEGORIES as POST_CATEGORIES } from "@/lib/categories";
 import { Category, Post } from "@/types/post";
 
-const CATEGORIES: (Category | "전체")[] = ["전체", "생필품", "식재료", "배달비"];
+const CATEGORIES: (Category | "전체")[] = ["전체", ...POST_CATEGORIES];
 
 type LoadState =
   | { kind: "loading" }

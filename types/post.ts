@@ -1,4 +1,12 @@
-export type Category = "생필품" | "식재료" | "배달비";
+export type Category =
+  | "생필품"
+  | "식재료"
+  | "배달비"
+  | "의류"
+  | "가구"
+  | "전자제품"
+  | "일회용품"
+  | "기타";
 
 export type PostStatus = "recruiting" | "done";
 
@@ -19,11 +27,16 @@ export interface Post {
   authorId?: string; // 글쓴이 계정 id (더미 글은 없어요)
 }
 
-// 참여자 현황용. 닉네임과 송금 여부만 공개돼요.
+// 내 송금 단계: none(참여 안 함) → before(송금 전) → pending(입금 확인 대기) → confirmed(입금 확인 완료)
+export type PayStatus = "none" | "before" | "pending" | "confirmed";
+
+// 참여자 현황용. 닉네임과 송금 단계만 공개돼요.
 export interface Participant {
   id: string;
   nickname: string;
-  paid: boolean;
+  paid: boolean; // 참여자가 송금 완료를 표시했어요.
+  confirmed: boolean; // 글쓴이가 입금을 확인했어요.
+  isAuthor: boolean;
 }
 
 export interface Account {
