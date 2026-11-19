@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import PostForm, { FormValues, ImageChange, toLocalInput } from "@/components/PostForm";
-import { fetchAccount, fetchPost, updatePost } from "@/lib/posts";
+import { fetchAccount, fetchPost, setDeadline, updatePost } from "@/lib/posts";
 import { deletePostImage, uploadPostImage } from "@/lib/storage";
 import { useAuth } from "@/lib/useAuth";
 import { Post } from "@/types/post";
@@ -38,6 +38,7 @@ export default function EditPostPage() {
         targetCount: String(post.targetCount),
         pickupPlace: post.pickupPlace,
         pickupAt: toLocalInput(post.pickupAt),
+        deadline: post.deadline ? toLocalInput(post.deadline) : "",
         bankName: account?.bankName ?? "",
         accountNumber: account?.accountNumber ?? "",
         accountHolder: account?.accountHolder ?? "",
@@ -90,6 +91,14 @@ export default function EditPostPage() {
         imageUrl: newImageUrl,
         clearImage: image.clear,
       });
+
+      // 마감일은 바꿨을 때만 보내요. (픽업 시간이 바뀐 뒤에 검사해야 해서 글 수정 다음에 해요.)
+      if (values.deadline !== initial.deadline) {
+        await setDeadline(
+          id,
+          values.deadline ? new Date(values.deadline).toISOString() : null
+        );
+      }
     } catch (err) {
       if (newImageUrl) await deletePostImage(newImageUrl);
       throw err;
@@ -106,17 +115,17 @@ export default function EditPostPage() {
     <div className="mb-4 flex items-center gap-3">
       <Link
         href={`/post/${id}`}
-        className="rounded-lg border border-gray-300 px-3 py-1.5 text-sm text-gray-200"
+        className="rounded-lg border border-gray-300 px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-50"
       >
         취소
       </Link>
-      <h1 className="text-lg font-semibold text-gray-100">글 수정</h1>
+      <h1 className="text-lg font-semibold text-gray-900 md:text-2xl">글 수정</h1>
     </div>
   );
 
   if (authLoading || (userId !== null && state.kind === "loading")) {
     return (
-      <main className="mx-auto max-w-md px-4 pt-6">
+      <main className="mx-auto max-w-md px-4 pb-8 pt-6 md:max-w-2xl md:px-6 md:pt-10">
         {header}
         <p className="py-10 text-center text-sm text-gray-400">불러오는 중...</p>
       </main>
@@ -125,7 +134,7 @@ export default function EditPostPage() {
 
   if (userId === null) {
     return (
-      <main className="mx-auto max-w-md px-4 pt-6">
+      <main className="mx-auto max-w-md px-4 pb-8 pt-6 md:max-w-2xl md:px-6 md:pt-10">
         {header}
         <div className="rounded-xl border border-gray-200 bg-white p-4 text-center text-sm text-gray-700">
           <p>글을 수정하려면 로그인이 필요해요.</p>
@@ -141,7 +150,7 @@ export default function EditPostPage() {
   }
 
   return (
-    <main className="mx-auto max-w-md px-4 pt-6">
+    <main className="mx-auto max-w-md px-4 pb-8 pt-6 md:max-w-2xl md:px-6 md:pt-10">
       {header}
 
       {state.kind === "error" && (

@@ -38,3 +38,23 @@ export function isRecruitDone(currentCount: number, targetCount: number): boolea
 export function formatWon(amount: number): string {
   return `${amount.toLocaleString("ko-KR")}원`;
 }
+
+/** 마감일이 지났는지. 마감일이 없으면 항상 false예요. */
+export function isDeadlinePassed(deadline?: string, now: number = Date.now()): boolean {
+  if (!deadline) return false;
+  const t = new Date(deadline).getTime();
+  return Number.isFinite(t) && t <= now;
+}
+
+/**
+ * 마감까지 남은 기간 표시: "D-3", "오늘 마감". 마감일이 없거나 이미 지났으면 null이에요.
+ * 날짜(내 시간대) 기준으로 세요.
+ */
+export function formatDeadlineLabel(deadline?: string, now: number = Date.now()): string | null {
+  if (!deadline) return null;
+  const end = new Date(deadline);
+  if (Number.isNaN(end.getTime()) || end.getTime() <= now) return null;
+  const startOfDay = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
+  const days = Math.round((startOfDay(end) - startOfDay(new Date(now))) / 86400000);
+  return days <= 0 ? "오늘 마감" : `D-${days}`;
+}

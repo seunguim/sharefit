@@ -74,15 +74,15 @@ export default function LoginPage() {
   };
 
   return (
-    <main className="mx-auto max-w-md px-4 pt-6">
+    <main className="mx-auto max-w-md px-4 pb-8 pt-6 md:max-w-md md:px-6 md:pt-16">
       <div className="mb-4 flex items-center gap-3">
         <Link
           href="/"
-          className="rounded-lg border border-gray-300 px-3 py-1.5 text-sm text-gray-200"
+          className="rounded-lg border border-gray-300 px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-50"
         >
           홈으로
         </Link>
-        <h1 className="text-lg font-semibold text-gray-100">
+        <h1 className="text-lg font-semibold text-gray-900 md:text-2xl">
           {mode === "login" ? "로그인" : "회원가입"}
         </h1>
       </div>

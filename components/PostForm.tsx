@@ -19,6 +19,7 @@ export interface FormValues {
   targetCount: string;
   pickupPlace: string;
   pickupAt: string; // datetime-local 형식 (예: 2026-11-05T14:00)
+  deadline: string; // 모집 마감일 (datetime-local 형식). 비워 두면 마감일 없음
   bankName: string;
   accountNumber: string;
   accountHolder: string;
@@ -32,6 +33,7 @@ export const emptyValues: FormValues = {
   targetCount: "",
   pickupPlace: "",
   pickupAt: "",
+  deadline: "",
   bankName: "",
   accountNumber: "",
   accountHolder: "",
@@ -55,7 +57,11 @@ export interface ImageChange {
 
 type FormErrors = Partial<Record<keyof FormValues, string>>;
 
-function validate(values: FormValues, pickupMustBeFuture: boolean): FormErrors {
+function validate(
+  values: FormValues,
+  pickupMustBeFuture: boolean,
+  deadlineMustBeFuture: boolean
+): FormErrors {
   const errors: FormErrors = {};
 
   if (!values.title.trim()) {
@@ -90,6 +96,18 @@ function validate(values: FormValues, pickupMustBeFuture: boolean): FormErrors {
     new Date(values.pickupAt).getTime() <= Date.now()
   ) {
     errors.pickupAt = "픽업 시간은 지금보다 이후로 선택해주세요.";
+  }
+
+  if (values.deadline) {
+    const deadlineTime = new Date(values.deadline).getTime();
+    if (deadlineMustBeFuture && deadlineTime <= Date.now()) {
+      errors.deadline = "마감일은 지금보다 이후로 선택해주세요.";
+    } else if (
+      values.pickupAt &&
+      deadlineTime > new Date(values.pickupAt).getTime()
+    ) {
+      errors.deadline = "마감일은 픽업 시간보다 늦을 수 없어요.";
+    }
   }
 
   if (!values.bankName.trim()) errors.bankName = "은행명을 입력해주세요.";
@@ -193,7 +211,8 @@ export default function PostForm({
 
     // 수정할 때 픽업 시간을 그대로 두면 "지금보다 이후" 검사는 건너뛰어요.
     const pickupChanged = values.pickupAt !== initialValues.pickupAt;
-    const nextErrors = validate(values, pickupChanged);
+    const deadlineChanged = values.deadline !== initialValues.deadline;
+    const nextErrors = validate(values, pickupChanged, deadlineChanged);
     setErrors(nextErrors);
     if (Object.keys(nextErrors).length > 0) return;
 
@@ -217,7 +236,7 @@ export default function PostForm({
     <form
       onSubmit={handleSubmit}
       noValidate
-      className="flex flex-col gap-4 rounded-xl border border-gray-200 bg-white p-4 shadow-sm"
+      className="flex flex-col gap-4 rounded-xl border border-gray-200 bg-white p-4 shadow-sm md:gap-5 md:rounded-2xl md:p-8"
     >
       <div className="rounded-lg bg-gray-50 p-3 text-xs leading-relaxed text-gray-600">
         <p className="font-medium text-gray-700">올리기 전에 확인해주세요</p>
@@ -357,6 +376,33 @@ export default function PostForm({
           onChange={handleChange}
           className={inputClass}
         />
+      </FormField>
+
+      <FormField
+        label="모집 마감일 (선택)"
+        htmlFor="deadline"
+        error={errors.deadline}
+        hint="비워 두면 정원이 찰 때까지 모집해요. 마감일이 지나면 새로 참여할 수 없어요."
+      >
+        <div className="flex gap-2">
+          <input
+            id="deadline"
+            name="deadline"
+            type="datetime-local"
+            value={values.deadline}
+            onChange={handleChange}
+            className={inputClass}
+          />
+          {values.deadline && (
+            <button
+              type="button"
+              onClick={() => setValues((v) => ({ ...v, deadline: "" }))}
+              className="shrink-0 rounded-lg border border-gray-300 px-3 text-sm text-gray-600 hover:bg-gray-50"
+            >
+              없애기
+            </button>
+          )}
+        </div>
       </FormField>
 
       <fieldset className="flex flex-col gap-3 rounded-lg border border-gray-200 p-3">

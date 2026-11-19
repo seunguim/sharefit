@@ -54,7 +54,7 @@ export default function MyPage() {
 
   if (loading) {
     return (
-      <main className="mx-auto max-w-md px-4 pt-6">
+      <main className="mx-auto max-w-md px-4 pb-8 pt-6 md:max-w-2xl md:px-6 md:pt-10">
         <p className="py-10 text-center text-sm text-gray-400">불러오는 중...</p>
       </main>
     );
@@ -62,8 +62,8 @@ export default function MyPage() {
 
   if (!user) {
     return (
-      <main className="mx-auto max-w-md px-4 pt-6">
-        <h1 className="text-lg font-semibold text-gray-100">내 정보</h1>
+      <main className="mx-auto max-w-md px-4 pb-8 pt-6 md:max-w-2xl md:px-6 md:pt-10">
+        <h1 className="text-lg font-semibold text-gray-900 md:text-2xl">내 정보</h1>
         <div className="mt-4 rounded-xl border border-gray-200 bg-white p-4 text-center text-sm text-gray-700">
           <p>로그인하면 내가 참여한 공동구매를 볼 수 있어요.</p>
           <Link
@@ -78,8 +78,8 @@ export default function MyPage() {
   }
 
   return (
-    <main className="mx-auto max-w-md px-4 pt-6">
-      <h1 className="text-lg font-semibold text-gray-100">내 정보</h1>
+    <main className="mx-auto max-w-md px-4 pb-8 pt-6 md:max-w-2xl md:px-6 md:pt-10">
+      <h1 className="text-lg font-semibold text-gray-900 md:text-2xl">내 정보</h1>
 
       <div className="mt-4 flex items-center justify-between rounded-xl border border-gray-200 bg-white p-4 text-gray-900 shadow-sm">
         <div className="min-w-0">
@@ -136,7 +136,7 @@ function PostSection({
 }) {
   return (
     <section className="mt-6">
-      <h2 className="text-sm font-semibold text-gray-200">
+      <h2 className="text-sm font-semibold text-gray-800">
         {title} ({posts.length})
       </h2>
       <div className="mt-2 flex flex-col gap-3">

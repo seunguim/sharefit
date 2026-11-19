@@ -26,6 +26,7 @@ export default function WritePage() {
         targetCount: Number(values.targetCount),
         pickupPlace: values.pickupPlace.trim(),
         pickupAt: new Date(values.pickupAt).toISOString(),
+        deadline: values.deadline ? new Date(values.deadline).toISOString() : null,
         bankName: values.bankName.trim(),
         accountNumber: values.accountNumber,
         accountHolder: values.accountHolder.trim(),
@@ -41,7 +42,7 @@ export default function WritePage() {
 
   if (authLoading) {
     return (
-      <main className="mx-auto max-w-md px-4 pt-6">
+      <main className="mx-auto max-w-md px-4 pb-8 pt-6 md:max-w-2xl md:px-6 md:pt-10">
         <p className="py-10 text-center text-sm text-gray-400">불러오는 중...</p>
       </main>
     );
@@ -49,8 +50,8 @@ export default function WritePage() {
 
   if (!user) {
     return (
-      <main className="mx-auto max-w-md px-4 pt-6">
-        <h1 className="text-lg font-semibold text-gray-100">공동구매 글쓰기</h1>
+      <main className="mx-auto max-w-md px-4 pb-8 pt-6 md:max-w-2xl md:px-6 md:pt-10">
+        <h1 className="text-lg font-semibold text-gray-900 md:text-2xl">공동구매 글쓰기</h1>
         <div className="mt-4 rounded-xl border border-gray-200 bg-white p-4 text-center text-sm text-gray-700">
           <p>글을 쓰려면 로그인이 필요해요.</p>
           <Link
@@ -65,15 +66,15 @@ export default function WritePage() {
   }
 
   return (
-    <main className="mx-auto max-w-md px-4 pt-6">
+    <main className="mx-auto max-w-md px-4 pb-8 pt-6 md:max-w-2xl md:px-6 md:pt-10">
       <div className="mb-4 flex items-center gap-3">
         <Link
           href="/"
-          className="rounded-lg border border-gray-300 px-3 py-1.5 text-sm text-gray-200"
+          className="rounded-lg border border-gray-300 px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-50"
         >
           뒤로가기
         </Link>
-        <h1 className="text-lg font-semibold text-gray-100">공동구매 글쓰기</h1>
+        <h1 className="text-lg font-semibold text-gray-900 md:text-2xl">공동구매 글쓰기</h1>
       </div>
 
       <PostForm

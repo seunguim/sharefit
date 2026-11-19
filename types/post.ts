@@ -25,6 +25,7 @@ export interface Post {
   pickupAt: string; // ISO 문자열
   status: PostStatus;
   authorId?: string; // 글쓴이 계정 id (더미 글은 없어요)
+  deadline?: string; // 모집 마감일 (ISO). 없으면 정원이 찰 때까지 모집해요.
 }
 
 // 내 송금 단계: none(참여 안 함) → before(송금 전) → pending(입금 확인 대기) → confirmed(입금 확인 완료)

@@ -24,10 +24,11 @@ interface PostRow {
   pickup_at: string;
   status: PostStatus;
   author_id: string | null;
+  deadline: string | null;
 }
 
 const POST_COLUMNS =
-  "id, title, category, product_url, image_url, total_price, target_count, current_count, pickup_place, pickup_at, status, author_id";
+  "id, title, category, product_url, image_url, total_price, target_count, current_count, pickup_place, pickup_at, status, author_id, deadline";
 
 function toPost(row: PostRow): Post {
   return {
@@ -43,6 +44,7 @@ function toPost(row: PostRow): Post {
     pickupAt: row.pickup_at,
     status: row.status,
     authorId: row.author_id ?? undefined,
+    deadline: row.deadline ?? undefined,
   };
 }
 
@@ -81,6 +83,7 @@ export interface NewPostInput {
   accountNumber: string;
   accountHolder: string;
   imageUrl?: string | null; // 올려 둔 사진의 공개 주소
+  deadline?: string | null; // 모집 마감일 (ISO 문자열). 없으면 마감일 없음
 }
 
 /**
@@ -107,7 +110,39 @@ export async function createPost(input: NewPostInput): Promise<string> {
   if (error) throw new Error(error.message);
   const result = data as { post_id: string } | null;
   if (!result) throw new Error("저장 결과를 받지 못했어요.");
+  // 마감일은 글을 저장한 뒤에 따로 정해요. (입력 단계에서 이미 검사했기 때문에 보통은 실패하지 않아요.)
+  if (input.deadline) {
+    try {
+      await setDeadline(result.post_id, input.deadline);
+    } catch {
+      // 글은 이미 저장됐어요. 마감일은 글 수정에서 다시 정할 수 있어요.
+    }
+  }
   return result.post_id;
+}
+
+/** 모집 마감일 정하기·바꾸기 (글쓴이만). null이면 마감일을 없애요. */
+export async function setDeadline(
+  postId: string,
+  deadline: string | null
+): Promise<void> {
+  const { error } = await getSupabase().rpc("set_deadline", {
+    p_post_id: postId,
+    p_deadline: deadline,
+  });
+  if (error) throw new Error(error.message);
+}
+
+/**
+ * 내 글 삭제 (글쓴이만, 다른 참여자가 없을 때만).
+ * 글에 올려 둔 사진 주소를 돌려줘요. (없으면 null)
+ */
+export async function deletePost(postId: string): Promise<string | null> {
+  const { data, error } = await getSupabase().rpc("delete_post", {
+    p_post_id: postId,
+  });
+  if (error) throw new Error(error.message);
+  return (data as string | null) ?? null;
 }
 
 export interface UpdatePostInput extends NewPostInput {
