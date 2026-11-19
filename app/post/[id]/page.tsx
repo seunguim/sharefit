@@ -19,6 +19,7 @@ import {
   leavePost,
   setPaid,
 } from "@/lib/posts";
+import CommentSection from "@/components/CommentSection";
 import { useAuth } from "@/lib/useAuth";
 import { Account, Participant, PayStatus, Post } from "@/types/post";
 
@@ -575,6 +576,14 @@ function DetailBody({
           </div>
         )}
       </section>
+
+      <CommentSection
+        postId={post.id}
+        loggedIn={loggedIn}
+        isAuthor={isAuthor}
+        joined={joined}
+        loginHref={loginHref}
+      />
 
       <section className="flex flex-col gap-2">
         {joined ? (

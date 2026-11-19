@@ -44,3 +44,14 @@ export interface Account {
   accountNumber: string;
   accountHolder: string;
 }
+
+// 댓글 · 공지. 공지는 글쓴이만 올릴 수 있고 목록 맨 위에 고정돼요.
+export interface Comment {
+  id: string;
+  nickname: string;
+  body: string;
+  isNotice: boolean;
+  createdAt: string; // ISO 문자열
+  isAuthor: boolean; // 글쓴이가 쓴 댓글이에요.
+  isMine: boolean; // 내가 쓴 댓글이에요.
+}
